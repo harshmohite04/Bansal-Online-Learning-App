@@ -6,6 +6,8 @@ import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import DashboardScreen from "./DashboardScreen";
 import { View, Text } from "react-native";
+import ProfileScreen from "./ProfileScreen";
+import ExploreScreen from "./ExploreScreen";
 const Tab = createBottomTabNavigator();
 
 export default function MainScreen() {
@@ -33,7 +35,7 @@ export default function MainScreen() {
 
         <Tab.Screen
           name="Search"
-          component={DummyScreen}
+          component={ExploreScreen}
           options={{
             tabBarIcon: ({ color, size }) => (
               <Ionicons name="search" color={color} size={size} />
@@ -52,7 +54,7 @@ export default function MainScreen() {
 
         <Tab.Screen
           name="Profile"
-          component={DummyScreen}
+          component={ProfileScreen}
           options={{
             tabBarIcon: ({ color, size }) => (
               <MaterialIcons name="person-outline" color={color} size={size} />

@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
-export default function LoginScreen() {
+export default function LoginScreen({navigation}) {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" />
@@ -51,7 +51,7 @@ export default function LoginScreen() {
           end={{ x: 1, y: 0 }}
           style={styles.button}
         >
-          <TouchableOpacity style={styles.buttonContent}>
+          <TouchableOpacity style={styles.buttonContent} onPress={()=>{navigation.push("MainScreen")}}>
             <Text style={styles.buttonText}>Login</Text>
           </TouchableOpacity>
         </LinearGradient>

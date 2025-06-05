@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   Image,
-  ScrollView,
   FlatList,
 } from 'react-native';
 import { ProgressBar } from 'react-native-paper';
@@ -36,65 +35,68 @@ export default function DashboardScreen() {
   ];
 
   return (
-    <ScrollView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Image
-          source={require('../assets/images/fire.png')}
-          style={styles.avatar}
-        />
-        <View>
-          <Text style={styles.welcome}>Welcome back</Text>
-          <View style={styles.nameRow}>
-            <Text style={styles.username}>Mahmoud.S</Text>
-            <Feather name="check-circle" size={16} color="#00CFFF" />
+    <FlatList
+      data={courses}
+      keyExtractor={(item) => item.id}
+      renderItem={({ item }) => <CourseCard course={item} />}
+      contentContainerStyle={styles.container}
+      style={{backgroundColor:"#000"}}
+      ListHeaderComponent={
+        <>
+          {/* Header */}
+          <View style={styles.header}>
+            <Image
+              source={require('../assets/images/fire.png')}
+              style={styles.avatar}
+            />
+            <View>
+              <Text style={styles.welcome}>Welcome back</Text>
+              <View style={styles.nameRow}>
+                <Text style={styles.username}>Mahmoud.S</Text>
+                <Feather name="check-circle" size={16} color="#00CFFF" />
+              </View>
+            </View>
+            <Feather name="bell" size={24} color="#fff" style={styles.bell} />
           </View>
-        </View>
-        <Feather name="bell" size={24} color="#fff" style={styles.bell} />
-      </View>
 
-      {/* Course Progress */}
-      <View style={styles.progressBox}>
-        <Text style={styles.sectionTitle}>Your progress in Courses</Text>
-        <CourseProgress
-          title="Computer Science"
-          teacher="Sarah Adam"
-          level="All Level"
-          color="#4CAF50"
-          rating={4.5}
-          progress={0.7}
-        />
-        <CourseProgress
-          title="Math 101"
-          teacher="Ahmed Medo"
-          level="Beginner"
-          color="#FFC107"
-          rating={5}
-          progress={0.5}
-        />
-        <CourseProgress
-          title="Algorithm"
-          teacher="Seif El-Deen"
-          level="Intermediate"
-          color="#F44336"
-          rating={4}
-          progress={0.3}
-        />
-      </View>
+          {/* Course Progress */}
+          <View style={styles.progressBox}>
+            <Text style={styles.sectionTitle}>Your progress in Courses</Text>
+            <CourseProgress
+              title="Computer Science"
+              teacher="Sarah Adam"
+              level="All Level"
+              color="#4CAF50"
+              rating={4.5}
+              progress={0.7}
+            />
+            <CourseProgress
+              title="Math 101"
+              teacher="Ahmed Medo"
+              level="Beginner"
+              color="#FFC107"
+              rating={5}
+              progress={0.5}
+            />
+            <CourseProgress
+              title="Algorithm"
+              teacher="Seif El-Deen"
+              level="Intermediate"
+              color="#F44336"
+              rating={4}
+              progress={0.3}
+            />
+          </View>
 
-      {/* Recommendations */}
-      <Text style={styles.recommendLabel}>— Recommendation —</Text>
-
-      <FlatList
-        data={courses}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => <CourseCard course={item} />}
-      />
-    </ScrollView>
+          {/* Recommendations */}
+          <Text style={styles.recommendLabel}>— Recommendation —</Text>
+        </>
+      }
+    />
   );
 }
 
-function CourseProgress({ title, teacher, level, color, rating, progress }) {
+function CourseProgress({ title, teacher, level, color, rating, progress }:any) {
   return (
     <View style={styles.progressItem}>
       <Text style={styles.courseTitle}>{title}</Text>
@@ -106,7 +108,7 @@ function CourseProgress({ title, teacher, level, color, rating, progress }) {
   );
 }
 
-function CourseCard({ course }) {
+function CourseCard({ course }:any) {
   return (
     <View style={[styles.card, { backgroundColor: '#1e1e1e' }]}>
       <View style={[styles.cardIcon, { backgroundColor: course.color }]}>
@@ -126,7 +128,7 @@ const styles = StyleSheet.create({
   container: {
     backgroundColor: '#121212',
     padding: 20,
-    flex: 1,
+    paddingBottom: 40,
   },
   header: {
     flexDirection: 'row',
