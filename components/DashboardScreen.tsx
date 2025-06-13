@@ -40,7 +40,7 @@ export default function DashboardScreen() {
       keyExtractor={(item) => item.id}
       renderItem={({ item }) => <CourseCard course={item} />}
       contentContainerStyle={styles.container}
-      style={{backgroundColor:"#000"}}
+      style={{backgroundColor:"#121212"}}
       ListHeaderComponent={
         <>
           {/* Header */}

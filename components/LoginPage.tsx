@@ -1,18 +1,59 @@
 // App.js or LoginScreen.js
 
-import React from 'react';
+import { LinearGradient } from 'expo-linear-gradient';
+import React, { useState } from 'react';
 import {
-  View,
-  Text,
-  TextInput,
-  StyleSheet,
-  TouchableOpacity,
   Image,
   StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 
-export default function LoginScreen({navigation}) {
+export default function LoginScreen({navigation}:any) {
+  const [isLogin, setIsLogin] = useState(true);
+  const [formData, setFormData] = useState({
+    email: '',
+    password: '',
+    name: ''
+  });
+
+  const handleInputChange = (field: string, value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const handleSubmit = async () => {
+    try {
+      const endpoint = isLogin ? '/api/signin' : '/api/signup';
+      // Use your computer's IP address instead of localhost
+      const response = await fetch(`http://localhost:5000${endpoint}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+
+      const data = await response.json();
+      
+      if (response.ok) {
+        // Handle successful login/signup
+        navigation.push("MainScreen");
+      } else {
+        // Handle error
+        alert(data.message);
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      alert('An error occurred. Please try again.');
+    }
+  };
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" />
@@ -20,60 +61,66 @@ export default function LoginScreen({navigation}) {
       {/* Logo & Title */}
       <View style={styles.header}>
         <View style={{flexDirection:'row',alignItems:"center",alignContent:"center",alignSelf:"center"}}>
-
-        <Image
-          source={require('../assets/images/fire.png')} // Replace with your actual logo
-          style={styles.logo}
+          <Image
+            source={require('../assets/images/fire.png')}
+            style={styles.logo}
           />
-        <Text style={styles.title}>Fire <Text style={{ fontWeight: 'bold' }}>course</Text></Text>
-          </View>
+          <Text style={styles.title}>Fire <Text style={{ fontWeight: 'bold' }}>course</Text></Text>
+        </View>
         <Text style={styles.subtitle}>Free app for learning miscellaneous things</Text>
       </View>
 
       {/* Inputs */}
       <View style={styles.form}>
+        {!isLogin && (
+          <TextInput
+            placeholder="Enter your name"
+            placeholderTextColor="#ccc"
+            style={styles.input}
+            value={formData.name}
+            onChangeText={(value) => handleInputChange('name', value)}
+          />
+        )}
         <TextInput
-          placeholder="Enter your name or e-mail"
+          placeholder="Enter your e-mail"
           placeholderTextColor="#ccc"
           style={styles.input}
+          value={formData.email}
+          onChangeText={(value) => handleInputChange('email', value)}
+          keyboardType="email-address"
+          autoCapitalize="none"
         />
         <TextInput
           placeholder="Password"
           placeholderTextColor="#ccc"
           secureTextEntry
           style={styles.input}
+          value={formData.password}
+          onChangeText={(value) => handleInputChange('password', value)}
         />
 
-        {/* Login Button */}
+        {/* Login/Signup Button */}
         <LinearGradient
           colors={['#5B38F7', '#0CC0DF']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
           style={styles.button}
         >
-          <TouchableOpacity style={styles.buttonContent} onPress={()=>{navigation.push("MainScreen")}}>
-            <Text style={styles.buttonText}>Login</Text>
-          </TouchableOpacity>
-        </LinearGradient>
-
-        {/* Google Button */}
-        <LinearGradient
-          colors={['#FBB03B', '#FF6A00']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={styles.button}
-        >
-          <TouchableOpacity style={styles.buttonContent}>
-            <Text style={styles.buttonText}>Sign in with Google</Text>
+          <TouchableOpacity style={styles.buttonContent} onPress={handleSubmit}>
+            <Text style={styles.buttonText}>{isLogin ? 'Login' : 'Sign Up'}</Text>
           </TouchableOpacity>
         </LinearGradient>
 
         {/* Help Links */}
-        <TouchableOpacity style={styles.linkContainer}>
-          <Text style={styles.linkText}>Having trouble logging in?</Text>
-        </TouchableOpacity>
-        <TouchableOpacity>
-          <Text style={styles.signUp}>Sign up</Text>
+        {isLogin && (
+          <TouchableOpacity style={styles.linkContainer}>
+            <Text style={styles.linkText}>Having trouble logging in?</Text>
+          </TouchableOpacity>
+        )}
+        <TouchableOpacity onPress={() => setIsLogin(!isLogin)}>
+          <Text style={styles.signUp}>
+            {isLogin ? "Don't have an account? Sign up" : "Already have an account? Login"}
+          </Text>
         </TouchableOpacity>
       </View>
     </View>
