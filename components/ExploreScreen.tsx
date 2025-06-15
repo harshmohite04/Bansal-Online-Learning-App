@@ -46,8 +46,8 @@ const ExploreScreen = () => {
       setLoading(true);
       setError(null);
       const url = category 
-        ? `http://localhost:5000/api/courses/category/${encodeURIComponent(category)}`
-        : 'http://localhost:5000/api/courses';
+        ? `https://bansal-online-learning-app.onrender.com/api/courses/category/${encodeURIComponent(category)}`
+        : 'https://bansal-online-learning-app.onrender.com/api/courses';
       console.log('Fetching courses from:', url);
       const response = await fetch(url, {
         method: 'GET',
@@ -77,7 +77,7 @@ const ExploreScreen = () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await fetch(`http://localhost:5000/api/courses/search?query=${encodeURIComponent(query)}`);
+      const response = await fetch(`https://bansal-online-learning-app.onrender.com/api/courses/search?query=${encodeURIComponent(query)}`);
       if (!response.ok) throw new Error('Failed to search courses');
       const data = await response.json();
       setCourses(data);

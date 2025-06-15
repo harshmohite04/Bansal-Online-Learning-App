@@ -1,5 +1,6 @@
 // App.js or LoginScreen.js
 
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useState } from 'react';
 import {
@@ -31,7 +32,7 @@ export default function LoginScreen({navigation}:any) {
     try {
       const endpoint = isLogin ? '/api/signin' : '/api/signup';
       // Use your computer's IP address instead of localhost
-      const response = await fetch(`http://localhost:5000${endpoint}`, {
+      const response = await fetch(`https://bansal-online-learning-app.onrender.com${endpoint}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -40,9 +41,17 @@ export default function LoginScreen({navigation}:any) {
       });
 
       const data = await response.json();
-      
+      console.log('Login/Signup response:', data);
       if (response.ok) {
-        // Handle successful login/signup
+        if (data.user && data.user.id) {
+          await AsyncStorage.setItem('userId', data.user.id);
+          console.log('User ID stored:', data.user.id);
+          const userId = await AsyncStorage.getItem('userId');
+          console.log('User ID retrieved:', userId);
+        } else {
+          alert('User ID not found in response!');
+          return;
+        }
         navigation.push("MainScreen");
       } else {
         // Handle error

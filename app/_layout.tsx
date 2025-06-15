@@ -7,7 +7,7 @@ const Stack = createStackNavigator();
 
 export default function RootLayout() {
   return (
-     <Stack.Navigator initialRouteName='MainScreen' screenOptions={{ headerShown: false }} >
+     <Stack.Navigator initialRouteName='LoginScreen' screenOptions={{ headerShown: false }} >
       <Stack.Screen name="LoginScreen" component={LoginPage} />
       <Stack.Screen name="MainScreen" component={MainScreen} />
     </Stack.Navigator>

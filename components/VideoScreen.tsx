@@ -1,14 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    SafeAreaView,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
 
 interface Course {
@@ -30,12 +31,19 @@ const VideoScreen = () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await fetch('http://localhost:5000/api/courses/purchased', {
+      const userId = await AsyncStorage.getItem('userId');
+      console.log(userId);
+      if (!userId) {
+        setError('User not logged in.');
+        setLoading(false);
+        return;
+      }
+      const response = await fetch('https://bansal-online-learning-app.onrender.com/api/courses/purchased', {
         method: 'GET',
         headers: {
           'Accept': 'application/json',
           'Content-Type': 'application/json',
-          // TODO: Add authentication token here
+          'user-id': userId,
         },
       });
 
