@@ -1,20 +1,35 @@
-import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  SafeAreaView,
-  StatusBar,
-  TouchableOpacity,
-  ScrollView,
-  TextInput,
-  Image,
-} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import React, { useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
+} from 'react-native';
+
+interface Course {
+  id: string;
+  title: string;
+  description: string;
+  price: string;
+  rating: number;
+  instructor: string;
+  level: string;
+  icon: string;
+  category: string;
+}
 
 const ExploreScreen = () => {
   const [searchText, setSearchText] = useState('');
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const categories = [
     'Game development',
@@ -26,44 +41,83 @@ const ExploreScreen = () => {
     'DevOps',
   ];
 
-  const recommendedCourses = [
-    {
-      id: 1,
-      title: 'Vue.js',
-      description: 'Master Vue.js. All can be perfect in math.',
-      price: '$50',
-      rating: 5.0,
-      instructor: 'Sarah Wilson',
-      level: 'Beginner',
-      icon: '🔷',
-    },
-    {
-      id: 2,
-      title: 'React.js',
-      description: 'Master React.js. All can be perfect in math.',
-      price: '$60',
-      rating: 5.0,
-      instructor: 'Sarah Wilson',
-      level: 'Beginner',
-      icon: '🔷',
-    },
-    {
-      id: 3,
-      title: 'Javascript',
-      description: 'Master Javascript. All can be perfect in math.',
-      price: '$50',
-      rating: 5.0,
-      instructor: 'Sarah Wilson',
-      level: 'Beginner',
-      icon: '🔷',
-    },
-  ];
+  const fetchCourses = async (category?: string) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const url = category 
+        ? `http://localhost:5000/api/courses/category/${encodeURIComponent(category)}`
+        : 'http://localhost:5000/api/courses';
+      console.log('Fetching courses from:', url);
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+      });
+      console.log('Response status:', response.status);
+      if (!response.ok) {
+        const errorData = await response.text();
+        console.error('Error response:', errorData);
+        throw new Error(`Failed to fetch courses: ${response.status} ${response.statusText}`);
+      }
+      const data = await response.json();
+      console.log('Received courses:', data);
+      setCourses(data);
+    } catch (err) {
+      console.error('Error fetching courses:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load courses. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const searchCourses = async (query: string) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await fetch(`http://localhost:5000/api/courses/search?query=${encodeURIComponent(query)}`);
+      if (!response.ok) throw new Error('Failed to search courses');
+      const data = await response.json();
+      setCourses(data);
+    } catch (err) {
+      setError('Failed to search courses. Please try again.');
+      console.error('Error searching courses:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchCourses();
+  }, []);
+
+  useEffect(() => {
+    if (selectedCategories.length > 0) {
+      fetchCourses(selectedCategories[0]);
+    } else {
+      fetchCourses();
+    }
+  }, [selectedCategories]);
+
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(() => {
+      if (searchText) {
+        searchCourses(searchText);
+      } else {
+        fetchCourses();
+      }
+    }, 500);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [searchText]);
 
   const toggleCategory = (category: string) => {
     setSelectedCategories(prev =>
       prev.includes(category)
         ? prev.filter(c => c !== category)
-        : [...prev, category]
+        : [category] // Only allow one category to be selected at a time
     );
   };
 
@@ -78,7 +132,7 @@ const ExploreScreen = () => {
     ));
   };
 
-  const renderCourseCard = (course: typeof recommendedCourses[0]) => (
+  const renderCourseCard = (course: Course) => (
     <TouchableOpacity key={course.id} style={styles.courseCard}>
       <View style={styles.courseIcon}>
         <Text style={styles.courseIconText}>{course.icon}</Text>
@@ -156,13 +210,19 @@ const ExploreScreen = () => {
         {/* Recommended Courses */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Recommended Courses</Text>
-          <View style={styles.coursesContainer}>
-            {recommendedCourses.map(renderCourseCard)}
-          </View>
+          {loading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#4A90E2" />
+            </View>
+          ) : error ? (
+            <Text style={styles.errorText}>{error}</Text>
+          ) : (
+            <View style={styles.coursesContainer}>
+              {courses.map(renderCourseCard)}
+            </View>
+          )}
         </View>
       </ScrollView>
-
-     
     </SafeAreaView>
   );
 };
@@ -320,6 +380,15 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#4A90E2',
     marginTop: 2,
+  },
+  loadingContainer: {
+    padding: 20,
+    alignItems: 'center',
+  },
+  errorText: {
+    color: '#ff4444',
+    textAlign: 'center',
+    padding: 20,
   },
 });
 

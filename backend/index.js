@@ -34,6 +34,23 @@ const userSchema = new mongoose.Schema({
 
 const User = mongoose.model('User', userSchema);
 
+// Course Schema
+const courseSchema = new mongoose.Schema({
+    title: { type: String, required: true },
+    description: { type: String, required: true },
+    price: { type: String, required: true },
+    rating: { type: Number, required: true },
+    instructor: { type: String, required: true },
+    level: { type: String, required: true },
+    icon: { type: String, required: true },
+    category: { type: String, required: true },
+    createdAt: { type: Date, default: Date.now }
+});
+
+const Course = mongoose.model('Course', courseSchema);
+app.get('/', (req, res) => {
+    res.send('Hello World');
+});
 // Sign Up API
 app.post('/api/signup', async (req, res) => {
     try {
@@ -116,6 +133,45 @@ app.post('/api/signin', async (req, res) => {
     } catch (error) {
         console.error('Signin error:', error);
         res.status(500).json({ message: 'Error signing in' });
+    }
+});
+
+// Get all courses
+app.get('/api/courses', async (req, res) => {
+    try {
+        const courses = await Course.find();
+        res.json(courses);
+    } catch (error) {
+        console.error('Error fetching courses:', error);
+        res.status(500).json({ message: 'Error fetching courses' });
+    }
+});
+
+// Get courses by category
+app.get('/api/courses/category/:category', async (req, res) => {
+    try {
+        const courses = await Course.find({ category: req.params.category });
+        res.json(courses);
+    } catch (error) {
+        console.error('Error fetching courses by category:', error);
+        res.status(500).json({ message: 'Error fetching courses by category' });
+    }
+});
+
+// Search courses
+app.get('/api/courses/search', async (req, res) => {
+    try {
+        const { query } = req.query;
+        const courses = await Course.find({
+            $or: [
+                { title: { $regex: query, $options: 'i' } },
+                { description: { $regex: query, $options: 'i' } }
+            ]
+        });
+        res.json(courses);
+    } catch (error) {
+        console.error('Error searching courses:', error);
+        res.status(500).json({ message: 'Error searching courses' });
     }
 });
 
