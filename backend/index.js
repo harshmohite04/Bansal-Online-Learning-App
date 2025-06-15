@@ -48,9 +48,21 @@ const courseSchema = new mongoose.Schema({
 });
 
 const Course = mongoose.model('Course', courseSchema);
+
+// Add UserCourse schema for tracking purchased courses and progress
+const userCourseSchema = new mongoose.Schema({
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    courseId: { type: mongoose.Schema.Types.ObjectId, ref: 'Course', required: true },
+    progress: { type: Number, default: 0 },
+    lastAccessed: { type: Date, default: Date.now }
+});
+
+const UserCourse = mongoose.model('UserCourse', userCourseSchema);
+
 app.get('/', (req, res) => {
     res.send('Hello World');
 });
+
 // Sign Up API
 app.post('/api/signup', async (req, res) => {
     try {
@@ -172,6 +184,106 @@ app.get('/api/courses/search', async (req, res) => {
     } catch (error) {
         console.error('Error searching courses:', error);
         res.status(500).json({ message: 'Error searching courses' });
+    }
+});
+
+// Get purchased courses for a user
+app.get('/api/courses/purchased', async (req, res) => {
+    try {
+        // TODO: Get userId from authentication token
+        const userId = req.headers['user-id']; // Temporary solution, replace with proper auth
+        
+        if (!userId) {
+            return res.status(401).json({ message: 'Authentication required' });
+        }
+
+        const userCourses = await UserCourse.find({ userId })
+            .populate('courseId')
+            .sort({ lastAccessed: -1 });
+
+        const courses = userCourses.map(uc => ({
+            id: uc.courseId._id,
+            title: uc.courseId.title,
+            description: uc.courseId.description,
+            instructor: uc.courseId.instructor,
+            level: uc.courseId.level,
+            icon: uc.courseId.icon,
+            progress: uc.progress
+        }));
+
+        res.json(courses);
+    } catch (error) {
+        console.error('Error fetching purchased courses:', error);
+        res.status(500).json({ message: 'Error fetching purchased courses' });
+    }
+});
+
+// Purchase a course
+app.post('/api/courses/:courseId/purchase', async (req, res) => {
+    try {
+        // TODO: Get userId from authentication token
+        const userId = req.headers['user-id']; // Temporary solution, replace with proper auth
+        
+        if (!userId) {
+            return res.status(401).json({ message: 'Authentication required' });
+        }
+
+        const courseId = req.params.courseId;
+        
+        // Check if course exists
+        const course = await Course.findById(courseId);
+        if (!course) {
+            return res.status(404).json({ message: 'Course not found' });
+        }
+
+        // Check if already purchased
+        const existingPurchase = await UserCourse.findOne({ userId, courseId });
+        if (existingPurchase) {
+            return res.status(400).json({ message: 'Course already purchased' });
+        }
+
+        // Create new purchase
+        const userCourse = new UserCourse({
+            userId,
+            courseId,
+            progress: 0
+        });
+
+        await userCourse.save();
+
+        res.status(201).json({ message: 'Course purchased successfully' });
+    } catch (error) {
+        console.error('Error purchasing course:', error);
+        res.status(500).json({ message: 'Error purchasing course' });
+    }
+});
+
+// Update course progress
+app.put('/api/courses/:courseId/progress', async (req, res) => {
+    try {
+        // TODO: Get userId from authentication token
+        const userId = req.headers['user-id']; // Temporary solution, replace with proper auth
+        
+        if (!userId) {
+            return res.status(401).json({ message: 'Authentication required' });
+        }
+
+        const { progress } = req.body;
+        const courseId = req.params.courseId;
+
+        const userCourse = await UserCourse.findOne({ userId, courseId });
+        if (!userCourse) {
+            return res.status(404).json({ message: 'Course not found' });
+        }
+
+        userCourse.progress = Math.min(100, Math.max(0, progress));
+        userCourse.lastAccessed = new Date();
+        await userCourse.save();
+
+        res.json({ message: 'Progress updated successfully' });
+    } catch (error) {
+        console.error('Error updating progress:', error);
+        res.status(500).json({ message: 'Error updating progress' });
     }
 });
 

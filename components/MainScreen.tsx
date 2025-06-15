@@ -1,13 +1,13 @@
 // App.js or RootLayout.js
-import React from "react";
-import { NavigationContainer } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import React from "react";
 
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
+import { Text, View } from "react-native";
 import DashboardScreen from "./DashboardScreen";
-import { View, Text } from "react-native";
-import ProfileScreen from "./ProfileScreen";
 import ExploreScreen from "./ExploreScreen";
+import ProfileScreen from "./ProfileScreen";
+import VideoScreen from "./VideoScreen";
 const Tab = createBottomTabNavigator();
 
 export default function MainScreen() {
@@ -44,7 +44,7 @@ export default function MainScreen() {
         />
         <Tab.Screen
           name="Video"
-          component={DummyScreen}
+          component={VideoScreen}
           options={{
             tabBarIcon: ({ color, size }) => (
               <Ionicons name="play-circle" color={color} size={size} />
