@@ -142,6 +142,9 @@ app.post('/api/signin', async (req, res) => {
             { expiresIn: '24h' }
         );
 
+        // Debug log
+        console.log('User logging in:', user);
+
         res.json({
             message: 'Login successful',
             token,
