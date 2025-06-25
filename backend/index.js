@@ -165,7 +165,19 @@ app.post('/api/signin', async (req, res) => {
 app.get('/api/courses', async (req, res) => {
     try {
         const courses = await Course.find();
-        res.json(courses);
+        const coursesWithId = courses.map(course => ({
+            id: course._id,
+            title: course.title,
+            description: course.description,
+            price: course.price,
+            rating: course.rating,
+            instructor: course.instructor,
+            level: course.level,
+            icon: course.icon,
+            category: course.category,
+            youtubePlaylistId: course.youtubePlaylistId
+        }));
+        res.json(coursesWithId);
     } catch (error) {
         console.error('Error fetching courses:', error);
         res.status(500).json({ message: 'Error fetching courses' });
@@ -176,7 +188,19 @@ app.get('/api/courses', async (req, res) => {
 app.get('/api/courses/category/:category', async (req, res) => {
     try {
         const courses = await Course.find({ category: req.params.category });
-        res.json(courses);
+        const coursesWithId = courses.map(course => ({
+            id: course._id,
+            title: course.title,
+            description: course.description,
+            price: course.price,
+            rating: course.rating,
+            instructor: course.instructor,
+            level: course.level,
+            icon: course.icon,
+            category: course.category,
+            youtubePlaylistId: course.youtubePlaylistId
+        }));
+        res.json(coursesWithId);
     } catch (error) {
         console.error('Error fetching courses by category:', error);
         res.status(500).json({ message: 'Error fetching courses by category' });
@@ -193,7 +217,19 @@ app.get('/api/courses/search', async (req, res) => {
                 { description: { $regex: query, $options: 'i' } }
             ]
         });
-        res.json(courses);
+        const coursesWithId = courses.map(course => ({
+            id: course._id,
+            title: course.title,
+            description: course.description,
+            price: course.price,
+            rating: course.rating,
+            instructor: course.instructor,
+            level: course.level,
+            icon: course.icon,
+            category: course.category,
+            youtubePlaylistId: course.youtubePlaylistId
+        }));
+        res.json(coursesWithId);
     } catch (error) {
         console.error('Error searching courses:', error);
         res.status(500).json({ message: 'Error searching courses' });
@@ -310,7 +346,19 @@ app.post('/api/admin/courses', async (req, res) => {
         }
         const course = new Course(req.body);
         await course.save();
-        res.status(201).json(course);
+        const courseWithId = {
+            id: course._id,
+            title: course.title,
+            description: course.description,
+            price: course.price,
+            rating: course.rating,
+            instructor: course.instructor,
+            level: course.level,
+            icon: course.icon,
+            category: course.category,
+            youtubePlaylistId: course.youtubePlaylistId
+        };
+        res.status(201).json(courseWithId);
     } catch (error) {
         console.error('Error creating course:', error);
         res.status(500).json({ message: 'Error creating course' });
@@ -326,7 +374,19 @@ app.put('/api/admin/courses/:id', async (req, res) => {
         }
         const course = await Course.findByIdAndUpdate(req.params.id, req.body, { new: true });
         if (!course) return res.status(404).json({ message: 'Course not found' });
-        res.json(course);
+        const courseWithId = {
+            id: course._id,
+            title: course.title,
+            description: course.description,
+            price: course.price,
+            rating: course.rating,
+            instructor: course.instructor,
+            level: course.level,
+            icon: course.icon,
+            category: course.category,
+            youtubePlaylistId: course.youtubePlaylistId
+        };
+        res.json(courseWithId);
     } catch (error) {
         console.error('Error updating course:', error);
         res.status(500).json({ message: 'Error updating course' });

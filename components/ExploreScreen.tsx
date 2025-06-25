@@ -1,7 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Modal,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -30,6 +32,10 @@ const ExploreScreen = () => {
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
+  const [buying, setBuying] = useState(false);
+  const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   const categories = [
     'Game development',
@@ -48,7 +54,7 @@ const ExploreScreen = () => {
       const url = category 
         ? `https://bansal-online-learning-app.onrender.com/api/courses/category/${encodeURIComponent(category)}`
         : 'https://bansal-online-learning-app.onrender.com/api/courses';
-      console.log('Fetching courses from:', url);
+      // console.log('Fetching courses from:', url);
       const response = await fetch(url, {
         method: 'GET',
         headers: {
@@ -56,14 +62,14 @@ const ExploreScreen = () => {
           'Content-Type': 'application/json',
         },
       });
-      console.log('Response status:', response.status);
+      // console.log('Response status:', response.status);
       if (!response.ok) {
         const errorData = await response.text();
         console.error('Error response:', errorData);
         throw new Error(`Failed to fetch courses: ${response.status} ${response.statusText}`);
       }
       const data = await response.json();
-      console.log('Received courses:', data);
+      // console.log('Received courses:', data);
       setCourses(data);
     } catch (err) {
       console.error('Error fetching courses:', err);
@@ -132,8 +138,50 @@ const ExploreScreen = () => {
     ));
   };
 
+  const handleBuy = async () => {
+    if (!selectedCourse) return;
+    console.log('Selected course for purchase:', selectedCourse);
+    console.log('Course ID:', selectedCourse.id);
+    setBuying(true);
+    try {
+      const userId = await AsyncStorage.getItem('userId');
+      if (!userId) {
+        setToast({ type: 'error', message: 'User not logged in.' });
+        setBuying(false);
+        return;
+      }
+      const res = await fetch(`https://bansal-online-learning-app.onrender.com/api/courses/${selectedCourse.id}/purchase`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'user-id': userId,
+        },
+      });
+      console.log('Purchase response status:', res.status);
+      if (res.ok) {
+        setToast({ type: 'success', message: 'Course purchased!' });
+        setModalVisible(false);
+      } else {
+        const data = await res.json();
+        setToast({ type: 'error', message: data.message || 'Failed to purchase.' });
+      }
+    } catch (e) {
+      console.error('Purchase error:', e);
+      setToast({ type: 'error', message: 'Failed to purchase.' });
+    }
+    setBuying(false);
+  };
+
+  // Toast auto-hide
+  useEffect(() => {
+    if (toast) {
+      const t = setTimeout(() => setToast(null), 2500);
+      return () => clearTimeout(t);
+    }
+  }, [toast]);
+
   const renderCourseCard = (course: Course) => (
-    <TouchableOpacity key={course.id} style={styles.courseCard}>
+    <TouchableOpacity key={course.id} style={styles.courseCard} onPress={() => { setSelectedCourse(course); setModalVisible(true); }}>
       <View style={styles.courseIcon}>
         <Text style={styles.courseIconText}>{course.icon}</Text>
       </View>
@@ -223,6 +271,43 @@ const ExploreScreen = () => {
           )}
         </View>
       </ScrollView>
+      {/* Modal for course details and buy */}
+      <Modal
+        visible={modalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' }}>
+          <View style={{ backgroundColor: '#222', borderRadius: 16, padding: 24, width: '85%' }}>
+            {selectedCourse && (
+              <>
+                <Text style={{ color: '#fff', fontSize: 22, fontWeight: 'bold', marginBottom: 8 }}>{selectedCourse.title}</Text>
+                <Text style={{ color: '#aaa', marginBottom: 8 }}>{selectedCourse.description}</Text>
+                <Text style={{ color: '#4A90E2', fontWeight: 'bold', fontSize: 18, marginBottom: 8 }}>{selectedCourse.price}</Text>
+                <Text style={{ color: '#fff', marginBottom: 8 }}>Instructor: {selectedCourse.instructor}</Text>
+                <Text style={{ color: '#fff', marginBottom: 8 }}>Level: {selectedCourse.level}</Text>
+                <TouchableOpacity
+                  style={{ backgroundColor: '#4A90E2', borderRadius: 8, padding: 14, marginTop: 10, alignItems: 'center' }}
+                  onPress={handleBuy}
+                  disabled={buying}
+                >
+                  <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>{buying ? 'Processing...' : 'Buy Course'}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={{ marginTop: 10, alignItems: 'center' }} onPress={() => setModalVisible(false)}>
+                  <Text style={{ color: '#aaa' }}>Close</Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
+        </View>
+      </Modal>
+      {/* Toast */}
+      {toast && (
+        <View style={{ position: 'absolute', bottom: 30, left: 30, right: 30, backgroundColor: toast.type === 'success' ? '#4CAF50' : '#ff4444', padding: 14, borderRadius: 8, alignItems: 'center', zIndex: 100 }}>
+          <Text style={{ color: '#fff' }}>{toast.message}</Text>
+        </View>
+      )}
     </SafeAreaView>
   );
 };

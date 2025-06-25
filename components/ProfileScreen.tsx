@@ -2,18 +2,22 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useEffect, useState } from 'react';
 import {
-    Alert,
-    FlatList,
-    Image,
-    SafeAreaView,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Dimensions,
+  FlatList,
+  Image,
+  Modal,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
+
+const TABS = ['All Courses', 'Create/Edit Course'];
 
 const ProfileScreen = () => {
   const [userRole, setUserRole] = useState<string | null>(null);
@@ -23,7 +27,7 @@ const ProfileScreen = () => {
     title: '',
     description: '',
     price: '',
-    rating: 0,
+    rating: '',
     instructor: '',
     level: '',
     icon: '',
@@ -31,6 +35,13 @@ const ProfileScreen = () => {
     youtubePlaylistId: '',
   });
   const [editCourseId, setEditCourseId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState(0);
+  const [search, setSearch] = useState('');
+  const [filterCategory, setFilterCategory] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   const menuItems = [
     { title: 'Account Settings', icon: 'chevron-forward' },
@@ -54,6 +65,7 @@ const ProfileScreen = () => {
   }, []);
 
   const fetchCourses = async () => {
+    setLoading(true);
     try {
       const res = await fetch('https://bansal-online-learning-app.onrender.com/api/courses');
       const data = await res.json();
@@ -61,9 +73,20 @@ const ProfileScreen = () => {
     } catch (e) {
       setAdminCourses([]);
     }
+    setLoading(false);
   };
 
   const handleCreateOrUpdate = async () => {
+    // Validation
+    if (!newCourse.title || !newCourse.description || !newCourse.price || !newCourse.instructor || !newCourse.level || !newCourse.icon || !newCourse.category) {
+      setToast({ type: 'error', message: 'Please fill all required fields.' });
+      return;
+    }
+    if (newCourse.rating && (Number(newCourse.rating) < 0 || Number(newCourse.rating) > 5)) {
+      setToast({ type: 'error', message: 'Rating must be between 0 and 5.' });
+      return;
+    }
+    setLoading(true);
     const userId = await AsyncStorage.getItem('userId');
     const method = editCourseId ? 'PUT' : 'POST';
     const url = editCourseId
@@ -76,18 +99,21 @@ const ProfileScreen = () => {
           'Content-Type': 'application/json',
           'user-id': userId || '',
         },
-        body: JSON.stringify(newCourse),
+        body: JSON.stringify({ ...newCourse, rating: Number(newCourse.rating) }),
       });
       if (res.ok) {
-        setNewCourse({ title: '', description: '', price: '', rating: 0, instructor: '', level: '', icon: '', category: '', youtubePlaylistId: '' });
+        setNewCourse({ title: '', description: '', price: '', rating: '', instructor: '', level: '', icon: '', category: '', youtubePlaylistId: '' });
         setEditCourseId(null);
         fetchCourses();
+        setActiveTab(0);
+        setToast({ type: 'success', message: editCourseId ? 'Course updated!' : 'Course created!' });
       } else {
-        Alert.alert('Error', 'Failed to save course');
+        setToast({ type: 'error', message: 'Failed to save course.' });
       }
     } catch (e) {
-      Alert.alert('Error', 'Failed to save course');
+      setToast({ type: 'error', message: 'Failed to save course.' });
     }
+    setLoading(false);
   };
 
   const handleEdit = (course: any) => {
@@ -96,30 +122,61 @@ const ProfileScreen = () => {
       title: course.title,
       description: course.description,
       price: course.price,
-      rating: course.rating,
+      rating: String(course.rating),
       instructor: course.instructor,
       level: course.level,
       icon: course.icon,
       category: course.category,
       youtubePlaylistId: course.youtubePlaylistId || '',
     });
+    setActiveTab(1);
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = (id: string) => {
+    setDeleteId(id);
+    setModalVisible(true);
+  };
+
+  const confirmDelete = async () => {
+    setModalVisible(false);
+    setLoading(true);
     const userId = await AsyncStorage.getItem('userId');
     try {
-      const res = await fetch(`https://bansal-online-learning-app.onrender.com/api/admin/courses/${id}`, {
+      const res = await fetch(`https://bansal-online-learning-app.onrender.com/api/admin/courses/${deleteId}`, {
         method: 'DELETE',
         headers: {
           'user-id': userId || '',
         },
       });
-      if (res.ok) fetchCourses();
-      else Alert.alert('Error', 'Failed to delete course');
+      if (res.ok) {
+        fetchCourses();
+        setToast({ type: 'success', message: 'Course deleted!' });
+      } else {
+        setToast({ type: 'error', message: 'Failed to delete course.' });
+      }
     } catch (e) {
-      Alert.alert('Error', 'Failed to delete course');
+      setToast({ type: 'error', message: 'Failed to delete course.' });
     }
+    setLoading(false);
+    setDeleteId(null);
   };
+
+  // Filtered and searched courses
+  const filteredCourses = adminCourses.filter(c =>
+    (!search || c.title.toLowerCase().includes(search.toLowerCase())) &&
+    (!filterCategory || c.category.toLowerCase().includes(filterCategory.toLowerCase()))
+  );
+
+  // Toast auto-hide
+  useEffect(() => {
+    if (toast) {
+      const t = setTimeout(() => setToast(null), 2500);
+      return () => clearTimeout(t);
+    }
+  }, [toast]);
+
+  // Responsive width
+  const screenWidth = Dimensions.get('window').width;
 
   const renderMenuItem = (item: { title: string; icon: string }, index: number) => (
     <TouchableOpacity key={index} style={styles.menuItem}>
@@ -159,47 +216,117 @@ const ProfileScreen = () => {
 
         {/* Admin Section */}
         {showAdmin && (
-          <View style={{ marginVertical: 30, backgroundColor: '#222', borderRadius: 12, padding: 16 }}>
-            <Text style={{ color: '#FFA500', fontWeight: 'bold', fontSize: 18, marginBottom: 10 }}>Admin: Manage Courses</Text>
-            {/* Create/Edit Form */}
-            <TextInput placeholder="Title" value={newCourse.title} onChangeText={v => setNewCourse({ ...newCourse, title: v })} style={styles.input} placeholderTextColor="#aaa" />
-            <TextInput placeholder="Description" value={newCourse.description} onChangeText={v => setNewCourse({ ...newCourse, description: v })} style={styles.input} placeholderTextColor="#aaa" />
-            <TextInput placeholder="Price" value={newCourse.price} onChangeText={v => setNewCourse({ ...newCourse, price: v })} style={styles.input} placeholderTextColor="#aaa" />
-            <TextInput placeholder="Rating" value={String(newCourse.rating)} onChangeText={v => setNewCourse({ ...newCourse, rating: Number(v) })} style={styles.input} placeholderTextColor="#aaa" keyboardType="numeric" />
-            <TextInput placeholder="Instructor" value={newCourse.instructor} onChangeText={v => setNewCourse({ ...newCourse, instructor: v })} style={styles.input} placeholderTextColor="#aaa" />
-            <TextInput placeholder="Level" value={newCourse.level} onChangeText={v => setNewCourse({ ...newCourse, level: v })} style={styles.input} placeholderTextColor="#aaa" />
-            <TextInput placeholder="Icon (emoji)" value={newCourse.icon} onChangeText={v => setNewCourse({ ...newCourse, icon: v })} style={styles.input} placeholderTextColor="#aaa" />
-            <TextInput placeholder="Category" value={newCourse.category} onChangeText={v => setNewCourse({ ...newCourse, category: v })} style={styles.input} placeholderTextColor="#aaa" />
-            <TextInput placeholder="YouTube Playlist ID" value={newCourse.youtubePlaylistId} onChangeText={v => setNewCourse({ ...newCourse, youtubePlaylistId: v })} style={styles.input} placeholderTextColor="#aaa" />
-            <TouchableOpacity style={{ backgroundColor: '#4A90E2', borderRadius: 8, padding: 12, marginTop: 10 }} onPress={handleCreateOrUpdate}>
-              <Text style={{ color: '#fff', textAlign: 'center', fontWeight: 'bold' }}>{editCourseId ? 'Update' : 'Create'} Course</Text>
-            </TouchableOpacity>
-            {editCourseId && (
-              <TouchableOpacity style={{ backgroundColor: '#888', borderRadius: 8, padding: 12, marginTop: 10 }} onPress={() => { setEditCourseId(null); setNewCourse({ title: '', description: '', price: '', rating: 0, instructor: '', level: '', icon: '', category: '', youtubePlaylistId: '' }); }}>
-                <Text style={{ color: '#fff', textAlign: 'center' }}>Cancel Edit</Text>
-              </TouchableOpacity>
+          <View style={styles.adminSection}>
+            {/* Tabs */}
+            <View style={styles.tabBar}>
+              {TABS.map((tab, idx) => (
+                <TouchableOpacity
+                  key={tab}
+                  style={[styles.tab, activeTab === idx && styles.activeTab]}
+                  onPress={() => setActiveTab(idx)}
+                >
+                  <Text style={[styles.tabText, activeTab === idx && styles.activeTabText]}>{tab}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            {/* Tab Content */}
+            {activeTab === 0 ? (
+              <View>
+                {/* Search/Filter */}
+                <View style={{ flexDirection: 'row', marginBottom: 10 }}>
+                  <TextInput
+                    placeholder="Search by title"
+                    value={search}
+                    onChangeText={setSearch}
+                    style={[styles.input, { flex: 1, marginRight: 8 }]}
+                    placeholderTextColor="#aaa"
+                  />
+                  <TextInput
+                    placeholder="Filter by category"
+                    value={filterCategory}
+                    onChangeText={setFilterCategory}
+                    style={[styles.input, { flex: 1 }]}
+                    placeholderTextColor="#aaa"
+                  />
+                </View>
+                {loading ? (
+                  <ActivityIndicator size="large" color="#FFA500" style={{ marginVertical: 20 }} />
+                ) : (
+                  <FlatList
+                    data={filteredCourses}
+                    keyExtractor={item => item._id}
+                    renderItem={({ item }) => (
+                      <View style={styles.courseCard}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.courseTitle}>{item.title}</Text>
+                          <Text style={styles.courseDesc}>{item.description}</Text>
+                          <Text style={styles.coursePrice}>Price: {item.price}</Text>
+                          <Text style={styles.courseCat}>Category: {item.category}</Text>
+                          <Text style={styles.courseCat}>Playlist: <Text style={{ color: '#4A90E2' }}>{item.youtubePlaylistId}</Text></Text>
+                        </View>
+                        <View style={{ justifyContent: 'center' }}>
+                          <TouchableOpacity onPress={() => handleEdit(item)} style={{ marginBottom: 8 }}>
+                            <Ionicons name="create-outline" size={22} color="#4A90E2" />
+                          </TouchableOpacity>
+                          <TouchableOpacity onPress={() => handleDelete(item._id)}>
+                            <Ionicons name="trash-outline" size={22} color="#ff4444" />
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    )}
+                    ListEmptyComponent={<Text style={{ color: '#aaa', textAlign: 'center', marginTop: 20 }}>No courses found.</Text>}
+                    style={{ minHeight: 200, width: screenWidth - 60 }}
+                  />
+                )}
+              </View>
+            ) : (
+              <View>
+                <TextInput placeholder="Title*" value={newCourse.title} onChangeText={v => setNewCourse({ ...newCourse, title: v })} style={styles.input} placeholderTextColor="#aaa" />
+                <TextInput placeholder="Description*" value={newCourse.description} onChangeText={v => setNewCourse({ ...newCourse, description: v })} style={styles.input} placeholderTextColor="#aaa" />
+                <TextInput placeholder="Price*" value={newCourse.price} onChangeText={v => setNewCourse({ ...newCourse, price: v })} style={styles.input} placeholderTextColor="#aaa" />
+                <TextInput placeholder="Rating (0-5)" value={newCourse.rating} onChangeText={v => setNewCourse({ ...newCourse, rating: v })} style={styles.input} placeholderTextColor="#aaa" keyboardType="numeric" />
+                <TextInput placeholder="Instructor*" value={newCourse.instructor} onChangeText={v => setNewCourse({ ...newCourse, instructor: v })} style={styles.input} placeholderTextColor="#aaa" />
+                <TextInput placeholder="Level*" value={newCourse.level} onChangeText={v => setNewCourse({ ...newCourse, level: v })} style={styles.input} placeholderTextColor="#aaa" />
+                <TextInput placeholder="Icon (emoji)*" value={newCourse.icon} onChangeText={v => setNewCourse({ ...newCourse, icon: v })} style={styles.input} placeholderTextColor="#aaa" />
+                <TextInput placeholder="Category*" value={newCourse.category} onChangeText={v => setNewCourse({ ...newCourse, category: v })} style={styles.input} placeholderTextColor="#aaa" />
+                <TextInput placeholder="YouTube Playlist ID" value={newCourse.youtubePlaylistId} onChangeText={v => setNewCourse({ ...newCourse, youtubePlaylistId: v })} style={styles.input} placeholderTextColor="#aaa" />
+                <TouchableOpacity style={styles.saveBtn} onPress={handleCreateOrUpdate}>
+                  <Text style={styles.saveBtnText}>{editCourseId ? 'Update' : 'Create'} Course</Text>
+                </TouchableOpacity>
+                {editCourseId && (
+                  <TouchableOpacity style={styles.cancelBtn} onPress={() => { setEditCourseId(null); setNewCourse({ title: '', description: '', price: '', rating: '', instructor: '', level: '', icon: '', category: '', youtubePlaylistId: '' }); }}>
+                    <Text style={styles.cancelBtnText}>Cancel Edit</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
             )}
-            {/* List Courses */}
-            <FlatList
-              data={adminCourses}
-              keyExtractor={item => item._id}
-              renderItem={({ item }) => (
-                <View style={{ backgroundColor: '#333', borderRadius: 8, padding: 10, marginVertical: 6 }}>
-                  <Text style={{ color: '#fff', fontWeight: 'bold' }}>{item.title}</Text>
-                  <Text style={{ color: '#aaa' }}>{item.description}</Text>
-                  <Text style={{ color: '#FFA500' }}>Price: {item.price}</Text>
-                  <Text style={{ color: '#aaa' }}>Playlist: {item.youtubePlaylistId}</Text>
-                  <View style={{ flexDirection: 'row', marginTop: 8 }}>
-                    <TouchableOpacity style={{ marginRight: 15 }} onPress={() => handleEdit(item)}>
-                      <Text style={{ color: '#4A90E2' }}>Edit</Text>
+            {/* Delete Confirmation Modal */}
+            <Modal
+              visible={modalVisible}
+              transparent
+              animationType="fade"
+              onRequestClose={() => setModalVisible(false)}
+            >
+              <View style={styles.modalBg}>
+                <View style={styles.modalBox}>
+                  <Text style={{ color: '#fff', fontSize: 16, marginBottom: 16 }}>Are you sure you want to delete this course?</Text>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                    <TouchableOpacity style={styles.modalBtn} onPress={confirmDelete}>
+                      <Text style={{ color: '#fff' }}>Yes</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity onPress={() => handleDelete(item._id)}>
-                      <Text style={{ color: '#ff4444' }}>Delete</Text>
+                    <TouchableOpacity style={[styles.modalBtn, { backgroundColor: '#888' }]} onPress={() => setModalVisible(false)}>
+                      <Text style={{ color: '#fff' }}>No</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
-              )}
-            />
+              </View>
+            </Modal>
+            {/* Toast */}
+            {toast && (
+              <View style={[styles.toast, toast.type === 'success' ? styles.toastSuccess : styles.toastError]}>
+                <Text style={{ color: '#fff' }}>{toast.message}</Text>
+              </View>
+            )}
           </View>
         )}
 
@@ -329,6 +456,122 @@ const styles = StyleSheet.create({
     color: '#fff',
     marginBottom: 10,
     backgroundColor: '#222',
+  },
+  adminSection: {
+    marginVertical: 30,
+    backgroundColor: '#222',
+    borderRadius: 12,
+    padding: 16,
+  },
+  tabBar: {
+    flexDirection: 'row',
+    marginBottom: 16,
+    backgroundColor: '#333',
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  activeTab: {
+    backgroundColor: '#FFA500',
+  },
+  tabText: {
+    color: '#fff',
+    fontWeight: 'bold',
+  },
+  activeTabText: {
+    color: '#222',
+  },
+  courseCard: {
+    flexDirection: 'row',
+    backgroundColor: '#2a2a2a',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 10,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  courseTitle: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  courseDesc: {
+    color: '#aaa',
+    fontSize: 13,
+    marginVertical: 2,
+  },
+  coursePrice: {
+    color: '#FFA500',
+    fontWeight: 'bold',
+    fontSize: 13,
+  },
+  courseCat: {
+    color: '#bbb',
+    fontSize: 12,
+  },
+  saveBtn: {
+    backgroundColor: '#4A90E2',
+    borderRadius: 8,
+    padding: 14,
+    marginTop: 10,
+  },
+  saveBtnText: {
+    color: '#fff',
+    textAlign: 'center',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  cancelBtn: {
+    backgroundColor: '#888',
+    borderRadius: 8,
+    padding: 14,
+    marginTop: 10,
+  },
+  cancelBtnText: {
+    color: '#fff',
+    textAlign: 'center',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  modalBg: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalBox: {
+    backgroundColor: '#222',
+    borderRadius: 12,
+    padding: 24,
+    width: 300,
+    alignItems: 'center',
+  },
+  modalBtn: {
+    backgroundColor: '#4A90E2',
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 24,
+    marginHorizontal: 10,
+  },
+  toast: {
+    position: 'absolute',
+    bottom: 30,
+    left: 30,
+    right: 30,
+    padding: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+    zIndex: 100,
+  },
+  toastSuccess: {
+    backgroundColor: '#4CAF50',
+  },
+  toastError: {
+    backgroundColor: '#ff4444',
   },
 });
 
