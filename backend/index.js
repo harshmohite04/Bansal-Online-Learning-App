@@ -29,6 +29,7 @@ const userSchema = new mongoose.Schema({
     email: { type: String, required: true, unique: true },
     password: { type: String, required: true },
     name: { type: String, required: true },
+    role: { type: String, default: 'user' },
     createdAt: { type: Date, default: Date.now }
 });
 
@@ -44,6 +45,7 @@ const courseSchema = new mongoose.Schema({
     level: { type: String, required: true },
     icon: { type: String, required: true },
     category: { type: String, required: true },
+    youtubePlaylistId: { type: String },
     createdAt: { type: Date, default: Date.now }
 });
 
@@ -62,6 +64,12 @@ const UserCourse = mongoose.model('UserCourse', userCourseSchema);
 app.get('/', (req, res) => {
     res.send('Hello World');
 });
+
+// Helper to check admin
+async function isAdmin(userId) {
+    const user = await User.findById(userId);
+    return user && user.role === 'admin';
+}
 
 // Sign Up API
 app.post('/api/signup', async (req, res) => {
@@ -100,7 +108,8 @@ app.post('/api/signup', async (req, res) => {
             user: {
                 id: user._id,
                 email: user.email,
-                name: user.name
+                name: user.name,
+                role: user.role
             }
         });
     } catch (error) {
@@ -139,7 +148,8 @@ app.post('/api/signin', async (req, res) => {
             user: {
                 id: user._id,
                 email: user.email,
-                name: user.name
+                name: user.name,
+                role: user.role
             }
         });
     } catch (error) {
@@ -208,7 +218,8 @@ app.get('/api/courses/purchased', async (req, res) => {
             instructor: uc.courseId.instructor,
             level: uc.courseId.level,
             icon: uc.courseId.icon,
-            progress: uc.progress
+            progress: uc.progress,
+            youtubePlaylistId: uc.courseId.youtubePlaylistId
         }));
 
         res.json(courses);
@@ -284,6 +295,54 @@ app.put('/api/courses/:courseId/progress', async (req, res) => {
     } catch (error) {
         console.error('Error updating progress:', error);
         res.status(500).json({ message: 'Error updating progress' });
+    }
+});
+
+// Admin-only: Create course
+app.post('/api/admin/courses', async (req, res) => {
+    try {
+        const userId = req.headers['user-id'];
+        if (!userId || !(await isAdmin(userId))) {
+            return res.status(403).json({ message: 'Admin access required' });
+        }
+        const course = new Course(req.body);
+        await course.save();
+        res.status(201).json(course);
+    } catch (error) {
+        console.error('Error creating course:', error);
+        res.status(500).json({ message: 'Error creating course' });
+    }
+});
+
+// Admin-only: Update course
+app.put('/api/admin/courses/:id', async (req, res) => {
+    try {
+        const userId = req.headers['user-id'];
+        if (!userId || !(await isAdmin(userId))) {
+            return res.status(403).json({ message: 'Admin access required' });
+        }
+        const course = await Course.findByIdAndUpdate(req.params.id, req.body, { new: true });
+        if (!course) return res.status(404).json({ message: 'Course not found' });
+        res.json(course);
+    } catch (error) {
+        console.error('Error updating course:', error);
+        res.status(500).json({ message: 'Error updating course' });
+    }
+});
+
+// Admin-only: Delete course
+app.delete('/api/admin/courses/:id', async (req, res) => {
+    try {
+        const userId = req.headers['user-id'];
+        if (!userId || !(await isAdmin(userId))) {
+            return res.status(403).json({ message: 'Admin access required' });
+        }
+        const course = await Course.findByIdAndDelete(req.params.id);
+        if (!course) return res.status(404).json({ message: 'Course not found' });
+        res.json({ message: 'Course deleted' });
+    } catch (error) {
+        console.error('Error deleting course:', error);
+        res.status(500).json({ message: 'Error deleting course' });
     }
 });
 

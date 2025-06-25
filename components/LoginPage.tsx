@@ -45,6 +45,9 @@ export default function LoginScreen({navigation}:any) {
       if (response.ok) {
         if (data.user && data.user.id) {
           await AsyncStorage.setItem('userId', data.user.id);
+          if (data.user.role) {
+            await AsyncStorage.setItem('userRole', data.user.role);
+          }
           console.log('User ID stored:', data.user.id);
           const userId = await AsyncStorage.getItem('userId');
           console.log('User ID retrieved:', userId);

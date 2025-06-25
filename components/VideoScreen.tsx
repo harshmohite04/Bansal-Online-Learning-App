@@ -11,6 +11,7 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
+import { WebView } from 'react-native-webview';
 
 interface Course {
   id: string;
@@ -20,6 +21,7 @@ interface Course {
   level: string;
   icon: string;
   progress: number;
+  youtubePlaylistId?: string;
 }
 
 const VideoScreen = () => {
@@ -73,6 +75,17 @@ const VideoScreen = () => {
       <View style={styles.courseInfo}>
         <Text style={styles.courseTitle}>{course.title}</Text>
         <Text style={styles.courseDescription}>{course.description}</Text>
+        {/* Render YouTube playlist if available */}
+        {course.youtubePlaylistId && (
+          <View style={{ height: 200, marginVertical: 10 }}>
+            <WebView
+              source={{ uri: `https://www.youtube.com/embed/videoseries?list=${course.youtubePlaylistId}` }}
+              style={{ flex: 1 }}
+              javaScriptEnabled
+              domStorageEnabled
+            />
+          </View>
+        )}
         <View style={styles.progressContainer}>
           <View style={[styles.progressBar, { width: `${course.progress}%` }]} />
           <Text style={styles.progressText}>{course.progress}% Complete</Text>
