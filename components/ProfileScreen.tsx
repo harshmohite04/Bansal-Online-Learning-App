@@ -2,22 +2,22 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
-  Dimensions,
-  FlatList,
-  Image,
-  Modal,
-  SafeAreaView,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View
+    ActivityIndicator,
+    Dimensions,
+    FlatList,
+    Image,
+    Modal,
+    SafeAreaView,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View
 } from 'react-native';
 
-const TABS = ['All Courses', 'Create/Edit Course'];
+const TABS = ['All Courses', 'Create/Edit Course', 'Manage Users'];
 
 const ProfileScreen = () => {
   const [userRole, setUserRole] = useState<string | null>(null);
@@ -42,6 +42,9 @@ const ProfileScreen = () => {
   const [modalVisible, setModalVisible] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [adminUsers, setAdminUsers] = useState<any[]>([]);
+  const [userLoading, setUserLoading] = useState(false);
+  const [userActionToast, setUserActionToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   const menuItems = [
     { title: 'Account Settings', icon: 'chevron-forward' },
@@ -161,11 +164,91 @@ const ProfileScreen = () => {
     setDeleteId(null);
   };
 
+  const fetchUsers = async () => {
+    setUserLoading(true);
+    try {
+      const userId = await AsyncStorage.getItem('userId');
+      const res = await fetch('https://bansal-online-learning-app.onrender.com/api/admin/users', {
+        headers: { 'user-id': userId || '' },
+      });
+      const data = await res.json();
+      setAdminUsers(data);
+    } catch (e) {
+      setAdminUsers([]);
+    }
+    setUserLoading(false);
+  };
+
+  const handlePromote = async (id: string) => {
+    setUserLoading(true);
+    try {
+      const userId = await AsyncStorage.getItem('userId');
+      const res = await fetch(`https://bansal-online-learning-app.onrender.com/api/admin/users/${id}/promote`, {
+        method: 'POST',
+        headers: { 'user-id': userId || '' },
+      });
+      if (res.ok) {
+        setUserActionToast({ type: 'success', message: 'User promoted to admin.' });
+        fetchUsers();
+      } else {
+        setUserActionToast({ type: 'error', message: 'Failed to promote user.' });
+      }
+    } catch (e) {
+      setUserActionToast({ type: 'error', message: 'Failed to promote user.' });
+    }
+    setUserLoading(false);
+  };
+
+  const handleDemote = async (id: string) => {
+    setUserLoading(true);
+    try {
+      const userId = await AsyncStorage.getItem('userId');
+      const res = await fetch(`https://bansal-online-learning-app.onrender.com/api/admin/users/${id}/demote`, {
+        method: 'POST',
+        headers: { 'user-id': userId || '' },
+      });
+      if (res.ok) {
+        setUserActionToast({ type: 'success', message: 'Admin demoted to user.' });
+        fetchUsers();
+      } else {
+        setUserActionToast({ type: 'error', message: 'Failed to demote admin.' });
+      }
+    } catch (e) {
+      setUserActionToast({ type: 'error', message: 'Failed to demote admin.' });
+    }
+    setUserLoading(false);
+  };
+
+  const handleDeleteUser = async (id: string) => {
+    setUserLoading(true);
+    try {
+      const userId = await AsyncStorage.getItem('userId');
+      const res = await fetch(`https://bansal-online-learning-app.onrender.com/api/admin/users/${id}`, {
+        method: 'DELETE',
+        headers: { 'user-id': userId || '' },
+      });
+      if (res.ok) {
+        setUserActionToast({ type: 'success', message: 'User deleted.' });
+        fetchUsers();
+      } else {
+        setUserActionToast({ type: 'error', message: 'Failed to delete user.' });
+      }
+    } catch (e) {
+      setUserActionToast({ type: 'error', message: 'Failed to delete user.' });
+    }
+    setUserLoading(false);
+  };
+
   // Filtered and searched courses
   const filteredCourses = adminCourses.filter(c =>
     (!search || c.title.toLowerCase().includes(search.toLowerCase())) &&
     (!filterCategory || c.category.toLowerCase().includes(filterCategory.toLowerCase()))
   );
+
+  // Fetch users when Manage Users tab is active
+  useEffect(() => {
+    if (showAdmin && activeTab === 2) fetchUsers();
+  }, [showAdmin, activeTab]);
 
   // Toast auto-hide
   useEffect(() => {
@@ -174,6 +257,14 @@ const ProfileScreen = () => {
       return () => clearTimeout(t);
     }
   }, [toast]);
+
+  // Toast auto-hide for user actions
+  useEffect(() => {
+    if (userActionToast) {
+      const t = setTimeout(() => setUserActionToast(null), 2500);
+      return () => clearTimeout(t);
+    }
+  }, [userActionToast]);
 
   // Responsive width
   const screenWidth = Dimensions.get('window').width;
@@ -279,7 +370,7 @@ const ProfileScreen = () => {
                   />
                 )}
               </View>
-            ) : (
+            ) : activeTab === 1 ? (
               <View>
                 <TextInput placeholder="Title*" value={newCourse.title} onChangeText={v => setNewCourse({ ...newCourse, title: v })} style={styles.input} placeholderTextColor="#aaa" />
                 <TextInput placeholder="Description*" value={newCourse.description} onChangeText={v => setNewCourse({ ...newCourse, description: v })} style={styles.input} placeholderTextColor="#aaa" />
@@ -297,6 +388,48 @@ const ProfileScreen = () => {
                   <TouchableOpacity style={styles.cancelBtn} onPress={() => { setEditCourseId(null); setNewCourse({ title: '', description: '', price: '', rating: '', instructor: '', level: '', icon: '', category: '', youtubePlaylistId: '' }); }}>
                     <Text style={styles.cancelBtnText}>Cancel Edit</Text>
                   </TouchableOpacity>
+                )}
+              </View>
+            ) : (
+              <View>
+                {userLoading ? (
+                  <ActivityIndicator size="large" color="#FFA500" style={{ marginVertical: 20 }} />
+                ) : (
+                  <FlatList
+                    data={adminUsers}
+                    keyExtractor={item => item._id}
+                    renderItem={({ item }) => (
+                      <View style={styles.courseCard}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.courseTitle}>{item.name} {item.role === 'admin' && <Text style={{ color: '#FFA500' }}>(Admin)</Text>}</Text>
+                          <Text style={styles.courseDesc}>{item.email}</Text>
+                          <Text style={styles.courseCat}>Role: {item.role}</Text>
+                          <Text style={styles.courseCat}>ID: {item._id}</Text>
+                        </View>
+                        <View style={{ justifyContent: 'center' }}>
+                          {item.role !== 'admin' ? (
+                            <TouchableOpacity onPress={() => handlePromote(item._id)} style={{ marginBottom: 8 }}>
+                              <Ionicons name="arrow-up-circle-outline" size={22} color="#4A90E2" />
+                            </TouchableOpacity>
+                          ) : (
+                            <TouchableOpacity onPress={() => handleDemote(item._id)} style={{ marginBottom: 8 }}>
+                              <Ionicons name="arrow-down-circle-outline" size={22} color="#FFA500" />
+                            </TouchableOpacity>
+                          )}
+                          <TouchableOpacity onPress={() => handleDeleteUser(item._id)}>
+                            <Ionicons name="person-remove-outline" size={22} color="#ff4444" />
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    )}
+                    ListEmptyComponent={<Text style={{ color: '#aaa', textAlign: 'center', marginTop: 20 }}>No users found.</Text>}
+                    style={{ minHeight: 200, width: screenWidth - 60 }}
+                  />
+                )}
+                {userActionToast && (
+                  <View style={[styles.toast, userActionToast.type === 'success' ? styles.toastSuccess : styles.toastError]}>
+                    <Text style={{ color: '#fff' }}>{userActionToast.message}</Text>
+                  </View>
                 )}
               </View>
             )}

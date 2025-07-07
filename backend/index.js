@@ -409,6 +409,69 @@ app.delete('/api/admin/courses/:id', async (req, res) => {
     }
 });
 
+// Admin-only: List all users
+app.get('/api/admin/users', async (req, res) => {
+    try {
+        const userId = req.headers['user-id'];
+        if (!userId || !(await isAdmin(userId))) {
+            return res.status(403).json({ message: 'Admin access required' });
+        }
+        const users = await User.find({}, '-password'); // Exclude password
+        res.json(users);
+    } catch (error) {
+        console.error('Error fetching users:', error);
+        res.status(500).json({ message: 'Error fetching users' });
+    }
+});
+
+// Admin-only: Promote user to admin
+app.post('/api/admin/users/:id/promote', async (req, res) => {
+    try {
+        const userId = req.headers['user-id'];
+        if (!userId || !(await isAdmin(userId))) {
+            return res.status(403).json({ message: 'Admin access required' });
+        }
+        const user = await User.findByIdAndUpdate(req.params.id, { role: 'admin' }, { new: true });
+        if (!user) return res.status(404).json({ message: 'User not found' });
+        res.json({ message: 'User promoted to admin', user });
+    } catch (error) {
+        console.error('Error promoting user:', error);
+        res.status(500).json({ message: 'Error promoting user' });
+    }
+});
+
+// Admin-only: Demote admin to user
+app.post('/api/admin/users/:id/demote', async (req, res) => {
+    try {
+        const userId = req.headers['user-id'];
+        if (!userId || !(await isAdmin(userId))) {
+            return res.status(403).json({ message: 'Admin access required' });
+        }
+        const user = await User.findByIdAndUpdate(req.params.id, { role: 'user' }, { new: true });
+        if (!user) return res.status(404).json({ message: 'User not found' });
+        res.json({ message: 'Admin demoted to user', user });
+    } catch (error) {
+        console.error('Error demoting admin:', error);
+        res.status(500).json({ message: 'Error demoting admin' });
+    }
+});
+
+// Admin-only: Delete user
+app.delete('/api/admin/users/:id', async (req, res) => {
+    try {
+        const userId = req.headers['user-id'];
+        if (!userId || !(await isAdmin(userId))) {
+            return res.status(403).json({ message: 'Admin access required' });
+        }
+        const user = await User.findByIdAndDelete(req.params.id);
+        if (!user) return res.status(404).json({ message: 'User not found' });
+        res.json({ message: 'User deleted' });
+    } catch (error) {
+        console.error('Error deleting user:', error);
+        res.status(500).json({ message: 'Error deleting user' });
+    }
+});
+
 // Start server
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {

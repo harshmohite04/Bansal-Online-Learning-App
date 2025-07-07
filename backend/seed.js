@@ -25,6 +25,7 @@ const courseSchema = new mongoose.Schema({
     level: { type: String, required: true },
     icon: { type: String, required: true },
     category: { type: String, required: true },
+    youtubePlaylistId: { type: String },
     createdAt: { type: Date, default: Date.now }
 });
 
@@ -39,7 +40,8 @@ const sampleCourses = [
         instructor: 'Sarah Wilson',
         level: 'Beginner',
         icon: '🔷',
-        category: 'Web'
+        category: 'Web',
+        youtubePlaylistId: 'PL4cUxeGkcC9hYYGbVfkFkdJQAph_UtUEq'
     },
     {
         title: 'React.js Fundamentals',
@@ -49,7 +51,8 @@ const sampleCourses = [
         instructor: 'John Smith',
         level: 'Intermediate',
         icon: '⚛️',
-        category: 'Web'
+        category: 'Web',
+        youtubePlaylistId: 'PL4cUxeGkcC9gZD-Tvwfod2gaISzfRiP9d'
     },
     {
         title: 'Python for Data Science',
@@ -59,7 +62,8 @@ const sampleCourses = [
         instructor: 'Emily Chen',
         level: 'Beginner',
         icon: '🐍',
-        category: 'Python'
+        category: 'Python',
+        youtubePlaylistId: 'PL-osiE80TeTt2d9bfVyTiXJA-UTHn6WwU'
     },
     {
         title: 'Java Programming',
@@ -69,7 +73,8 @@ const sampleCourses = [
         instructor: 'Michael Brown',
         level: 'Intermediate',
         icon: '☕',
-        category: 'Java'
+        category: 'Java',
+        youtubePlaylistId: 'PL9gnSGHSqcnr_DxHsP7AW9ftq0AtAyYqJ'
     },
     {
         title: 'Game Development with Unity',
@@ -79,7 +84,8 @@ const sampleCourses = [
         instructor: 'David Lee',
         level: 'Beginner',
         icon: '🎮',
-        category: 'Game development'
+        category: 'Game development',
+        youtubePlaylistId: 'PLPV2KyIb3jR5QFsefuO2YTlN0oB45EzGg'
     },
     {
         title: 'DevOps Fundamentals',
@@ -89,7 +95,8 @@ const sampleCourses = [
         instructor: 'Lisa Wang',
         level: 'Intermediate',
         icon: '🔄',
-        category: 'DevOps'
+        category: 'DevOps',
+        youtubePlaylistId: 'PL9gnSGHSqcnoqBXdJWUTg_fd8xEI7C-0n'
     },
     {
         title: 'Financial Analysis',
@@ -99,7 +106,8 @@ const sampleCourses = [
         instructor: 'Robert Johnson',
         level: 'Advanced',
         icon: '💰',
-        category: 'Finance'
+        category: 'Finance',
+        youtubePlaylistId: 'PL9gnSGHSqcnLw1JqjCkvHHmW1Bxcb7p2J'
     }
 ];
 
