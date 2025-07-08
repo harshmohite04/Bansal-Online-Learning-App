@@ -11,10 +11,11 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  View
+  View,
 } from 'react-native';
-import { WebView } from 'react-native-webview';
+import { Video } from 'expo-av';
 
+// ------------- Types -------------
 interface Course {
   id: string;
   title: string;
@@ -23,7 +24,6 @@ interface Course {
   level: string;
   icon: string;
   progress: number;
-  youtubePlaylistId?: string;
   thumbnail?: string;
 }
 
@@ -33,13 +33,34 @@ interface PlaylistVideo {
   duration: string;
   type: 'video' | 'pdf';
   thumbnail?: string;
+  videoUrl?: string;
 }
 
+// ------------- Dummy data -------------
 const mockPlaylistVideos: PlaylistVideo[] = [
-  { id: 'vid1', title: '1. Course intro', duration: '4:45', type: 'video', thumbnail: 'https://img.youtube.com/vi/dQw4w9WgXcQ/0.jpg' },
-  { id: 'vid2', title: '2. Course', duration: '25:00', type: 'video', thumbnail: 'https://img.youtube.com/vi/9bZkp7q19f0/0.jpg' },
-  { id: 'vid3', title: '3. Course (Homework)', duration: 'PDF', type: 'pdf', thumbnail: 'https://via.placeholder.com/120x80.png?text=PDF' },
-  { id: 'vid4', title: '4. Next Topic', duration: '12:30', type: 'video', thumbnail: 'https://img.youtube.com/vi/3JZ_D3ELwOQ/0.jpg' },
+  {
+    id: 'vid1',
+    title: '1. Course intro',
+    duration: '4:45',
+    type: 'video',
+    videoUrl: 'https://www.w3schools.com/html/mov_bbb.mp4',
+    thumbnail: 'https://img.youtube.com/vi/dQw4w9WgXcQ/mqdefault.jpg',
+  },
+  {
+    id: 'vid2',
+    title: '2. Main Lecture',
+    duration: '25:00',
+    type: 'video',
+    videoUrl: 'https://www.w3schools.com/html/movie.mp4',
+    thumbnail: 'https://img.youtube.com/vi/9bZkp7q19f0/mqdefault.jpg',
+  },
+  {
+    id: 'vid3',
+    title: '3. Homework',
+    duration: 'PDF',
+    type: 'pdf',
+    thumbnail: 'https://via.placeholder.com/120x80?text=PDF',
+  },
 ];
 
 const VideoScreen = () => {
@@ -51,36 +72,25 @@ const VideoScreen = () => {
   const [selectedTab, setSelectedTab] = useState<'content' | 'discussion'>('content');
   const [selectedVideo, setSelectedVideo] = useState<PlaylistVideo | null>(mockPlaylistVideos[0]);
   const [completedVideos, setCompletedVideos] = useState<string[]>([]);
+  const [playlistVideos] = useState<PlaylistVideo[]>(mockPlaylistVideos);
 
   const fetchPurchasedCourses = async () => {
     try {
       setLoading(true);
       setError(null);
       const userId = await AsyncStorage.getItem('userId');
-      console.log(userId);
       if (!userId) {
         setError('User not logged in.');
-        setLoading(false);
         return;
       }
-      const response = await fetch('https://bansal-online-learning-app.onrender.com/api/courses/purchased', {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-          'user-id': userId,
-        },
+      const resp = await fetch('https://bansal-online-learning-app.onrender.com/api/courses/purchased', {
+        headers: { 'user-id': userId },
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch purchased courses');
-      }
-
-      const data = await response.json();
+      if (!resp.ok) throw new Error('Failed');
+      const data = await resp.json();
       setCourses(data);
-    } catch (err) {
-      console.error('Error fetching purchased courses:', err);
-      setError('Failed to load purchased courses. Please try again.');
+    } catch (e) {
+      setError('Failed to load purchased courses');
     } finally {
       setLoading(false);
     }
@@ -90,185 +100,107 @@ const VideoScreen = () => {
     fetchPurchasedCourses();
   }, []);
 
-  const handleContinueLearning = (course: Course) => {
+  const openCourse = (course: Course) => {
     setSelectedCourse(course);
     setVideoModalVisible(true);
   };
 
-  const updateProgress = async (courseId: string, newProgress: number) => {
-    try {
-      const userId = await AsyncStorage.getItem('userId');
-      if (!userId) return;
-
-      const response = await fetch(`https://bansal-online-learning-app.onrender.com/api/courses/${courseId}/progress`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'user-id': userId,
-        },
-        body: JSON.stringify({ progress: newProgress }),
-      });
-
-      if (response.ok) {
-        // Update local state
-        setCourses(prevCourses =>
-          prevCourses.map(course =>
-            course.id === courseId
-              ? { ...course, progress: newProgress }
-              : course
-          )
-        );
-      }
-    } catch (error) {
-      console.error('Error updating progress:', error);
-    }
-  };
-
-  const handleSelectVideo = (video: PlaylistVideo) => {
+  const selectVideo = (video: PlaylistVideo) => {
     setSelectedVideo(video);
-    if (!completedVideos.includes(video.id)) {
-      setCompletedVideos(prev => [...prev, video.id]);
-    }
+    if (!completedVideos.includes(video.id)) setCompletedVideos((prev) => [...prev, video.id]);
   };
 
   const renderCourseCard = (course: Course) => (
-    <TouchableOpacity key={course.id} style={styles.courseCard} onPress={() => handleContinueLearning(course)}>
-      <Image
-        source={{ uri: course.thumbnail || 'https://via.placeholder.com/80x80.png?text=Course' }}
-        style={styles.courseThumbnail}
-      />
-      <View style={styles.courseInfo}>
+    <TouchableOpacity key={course.id} style={styles.courseCard} onPress={() => openCourse(course)}>
+      <Image source={{ uri: course.thumbnail || 'https://via.placeholder.com/80' }} style={styles.courseThumb} />
+      <View style={{ flex: 1 }}>
         <Text style={styles.courseTitle}>{course.title}</Text>
-        <Text style={styles.courseDescription}>{course.description}</Text>
-        {/* Render YouTube playlist if available */}
-        {course.youtubePlaylistId && (
-          <View style={{ height: 200, marginVertical: 10 }}>
-            <WebView
-              source={{ uri: `${course.youtubePlaylistId}` }}
-              style={{ flex: 1 }}
-              javaScriptEnabled
-              domStorageEnabled
-            />
-          </View>
-        )}
-        <View style={styles.progressContainer}>
+        <Text style={styles.courseDesc}>{course.description}</Text>
+        <View style={styles.progressWrap}>
           <View style={[styles.progressBar, { width: `${course.progress}%` }]} />
-          <Text style={styles.progressText}>{course.progress}% Complete</Text>
         </View>
-        <View style={styles.courseFooter}>
-          <Text style={styles.instructorText}>
-            by {course.instructor} • {course.level}
-          </Text>
-          <TouchableOpacity 
-            style={styles.continueButton}
-            onPress={() => handleContinueLearning(course)}
-          >
-            <Text style={styles.continueButtonText}>Continue Learning</Text>
-          </TouchableOpacity>
-        </View>
+        <Text style={styles.progressTxt}>{course.progress}% complete</Text>
       </View>
     </TouchableOpacity>
   );
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#1a1a1a" />
-      
-      {/* Header */}
+      <StatusBar barStyle="light-content" />
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>My Courses</Text>
-        <TouchableOpacity>
-          <Ionicons name="notifications-outline" size={24} color="#fff" />
-        </TouchableOpacity>
+        <Text style={styles.headerTxt}>My Courses</Text>
+        <Ionicons name="notifications-outline" size={24} color="#fff" />
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={styles.scrollBody}>
         {loading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#4A90E2" />
-          </View>
+          <ActivityIndicator size="large" color="#4A90E2" />
         ) : error ? (
-          <Text style={styles.errorText}>{error}</Text>
+          <Text style={styles.err}>{error}</Text>
         ) : courses.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <Ionicons name="videocam-outline" size={64} color="#666" />
-            <Text style={styles.emptyText}>No courses purchased yet</Text>
-            <TouchableOpacity style={styles.exploreButton}>
-              <Text style={styles.exploreButtonText}>Explore Courses</Text>
-            </TouchableOpacity>
-          </View>
+          <Text style={styles.empty}>No courses purchased yet</Text>
         ) : (
-          <View style={styles.coursesContainer}>
-            {courses.map(renderCourseCard)}
-          </View>
+          courses.map(renderCourseCard)
         )}
       </ScrollView>
 
-      {/* Video Modal */}
-      <Modal
-        visible={videoModalVisible}
-        animationType="slide"
-        onRequestClose={() => setVideoModalVisible(false)}
-      >
-        <SafeAreaView style={styles.modalContainer}>
-          {/* Video Player Section */}
-          <View style={styles.playerSection}>
-            <TouchableOpacity style={styles.closeButton} onPress={() => setVideoModalVisible(false)}>
-              <Ionicons name="chevron-back" size={28} color="#fff" />
-            </TouchableOpacity>
-            <Text style={styles.videoTitle}>{selectedVideo?.title || selectedCourse?.title}</Text>
-            <View style={styles.playerBox}>
-              {selectedVideo?.type === 'video' && selectedCourse?.youtubePlaylistId ? (
-                <WebView
-                  source={{ uri: `${selectedCourse.youtubePlaylistId}` }}
-                  style={styles.videoPlayer}
-                  javaScriptEnabled
-                  domStorageEnabled
-                  allowsFullscreenVideo
-                  mediaPlaybackRequiresUserAction={false}
-                />
-              ) : (
-                <View style={styles.noVideoContainer}>
-                  <Ionicons name="document-outline" size={64} color="#666" />
-                  <Text style={styles.noVideoText}>PDF or no video</Text>
-                </View>
-              )}
-            </View>
+      <Modal visible={videoModalVisible} animationType="slide" onRequestClose={() => setVideoModalVisible(false)}>
+        <SafeAreaView style={styles.modalWrap}>
+          <TouchableOpacity style={styles.backBtn} onPress={() => setVideoModalVisible(false)}>
+            <Ionicons name="chevron-back" size={28} color="#fff" />
+          </TouchableOpacity>
+          <Text style={styles.videoHeader}>{selectedVideo?.title}</Text>
+          <View style={styles.playerBox}>
+            {selectedVideo?.type === 'video' && selectedVideo.videoUrl ? (
+              <Video
+                source={{ uri: selectedVideo.videoUrl }}
+                resizeMode="contain"
+                useNativeControls
+                style={styles.videoPlayer}
+              />
+            ) : (
+              <View style={styles.noVidWrap}>
+                <Ionicons name="document-outline" size={64} color="#666" />
+                <Text style={{ color: '#666' }}>PDF or no video</Text>
+              </View>
+            )}
           </View>
-          {/* Tabs */}
+
           <View style={styles.tabBar}>
-            <TouchableOpacity
-              style={[styles.tabItem, selectedTab === 'content' && styles.activeTabItem]}
-              onPress={() => setSelectedTab('content')}
-            >
-              <Text style={[styles.tabText, selectedTab === 'content' && styles.activeTabText]}>Course Content</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.tabItem, selectedTab === 'discussion' && styles.activeTabItem]}
-              onPress={() => setSelectedTab('discussion')}
-            >
-              <Text style={[styles.tabText, selectedTab === 'discussion' && styles.activeTabText]}>Discussion</Text>
-            </TouchableOpacity>
+            {['content', 'discussion'].map((tab) => (
+              <TouchableOpacity
+                key={tab}
+                style={[styles.tabItem, selectedTab === tab && styles.tabActive]}
+                onPress={() => setSelectedTab(tab as any)}
+              >
+                <Text style={[styles.tabTxt, selectedTab === tab && styles.tabTxtActive]}>
+                  {tab === 'content' ? 'Course Content' : 'Discussion'}
+                </Text>
+              </TouchableOpacity>
+            ))}
           </View>
-          {/* Tab Content */}
+
           {selectedTab === 'content' ? (
-            <ScrollView style={styles.sectionList} contentContainerStyle={{ flexDirection: 'row', flexWrap: 'wrap' }}>
-              {mockPlaylistVideos.map(video => (
-                <TouchableOpacity
-                  key={video.id}
-                  style={styles.videoThumbnailContainer}
-                  onPress={() => handleSelectVideo(video)}
-                >
-                  <Image
-                    source={{ uri: video.thumbnail || 'https://via.placeholder.com/120x80.png?text=Video' }}
-                    style={styles.videoThumbnail}
-                  />
-                  <Text style={styles.videoRowTitle}>{video.title}</Text>
-                </TouchableOpacity>
-              ))}
+            <ScrollView style={styles.sectionList}>
+              {playlistVideos.map((v) => {
+                const sel = selectedVideo?.id === v.id;
+                const done = completedVideos.includes(v.id);
+                return (
+                  <TouchableOpacity key={v.id} style={[styles.videoRow, sel && styles.videoRowSel]} onPress={() => selectVideo(v)}>
+                    <Image source={{ uri: v.thumbnail || 'https://via.placeholder.com/120' }} style={styles.rowThumb} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.rowTitle}>{v.title}</Text>
+                      <Text style={styles.rowMeta}>{v.duration}</Text>
+                    </View>
+                    <Ionicons name={done ? 'checkmark-circle' : 'checkmark-circle-outline'} size={24} color={done ? '#4A90E2' : '#888'} />
+                  </TouchableOpacity>
+                );
+              })}
             </ScrollView>
           ) : (
-            <View style={styles.discussionTab}><Text style={{ color: '#aaa' }}>Discussion coming soon...</Text></View>
+            <View style={styles.discussionWrap}>
+              <Text style={{ color: '#aaa' }}>Discussion coming soon…</Text>
+            </View>
           )}
         </SafeAreaView>
       </Modal>
@@ -277,224 +209,39 @@ const VideoScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#1a1a1a',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#fff',
-  },
-  content: {
-    flex: 1,
-    paddingHorizontal: 20,
-  },
-  coursesContainer: {
-    gap: 15,
-    paddingVertical: 10,
-  },
-  courseCard: {
-    flexDirection: 'row',
-    backgroundColor: '#2a2a2a',
-    borderRadius: 12,
-    padding: 15,
-    alignItems: 'center',
-  },
-  courseThumbnail: {
-    width: 60,
-    height: 60,
-    borderRadius: 8,
-    marginRight: 15,
-    backgroundColor: '#333',
-  },
-  courseInfo: {
-    flex: 1,
-  },
-  courseTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginBottom: 4,
-  },
-  courseDescription: {
-    fontSize: 14,
-    color: '#999',
-    marginBottom: 8,
-  },
-  progressContainer: {
-    height: 4,
-    backgroundColor: '#333',
-    borderRadius: 2,
-    marginBottom: 8,
-    overflow: 'hidden',
-  },
-  progressBar: {
-    height: '100%',
-    backgroundColor: '#4A90E2',
-  },
-  progressText: {
-    fontSize: 12,
-    color: '#4A90E2',
-    marginBottom: 8,
-  },
-  courseFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  instructorText: {
-    fontSize: 12,
-    color: '#999',
-  },
-  continueButton: {
-    backgroundColor: '#4A90E2',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 15,
-  },
-  continueButtonText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  loadingContainer: {
-    padding: 20,
-    alignItems: 'center',
-  },
-  errorText: {
-    color: '#ff4444',
-    textAlign: 'center',
-    padding: 20,
-  },
-  emptyContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 50,
-  },
-  emptyText: {
-    color: '#666',
-    fontSize: 16,
-    marginTop: 10,
-    marginBottom: 20,
-  },
-  exploreButton: {
-    backgroundColor: '#4A90E2',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 20,
-  },
-  exploreButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  modalContainer: {
-    flex: 1,
-    backgroundColor: '#1a1a1a',
-  },
-  playerSection: {
-    flex: 1,
-    padding: 10,
-  },
-  closeButton: {
-    padding: 5,
-  },
-  videoTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#fff',
-    flex: 1,
-  },
-  playerBox: {
-    flex: 1,
-    borderRadius: 10,
-    overflow: 'hidden',
-  },
-  videoPlayer: {
-    flex: 1,
-    borderRadius: 10,
-  },
-  noVideoContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  noVideoText: {
-    color: '#666',
-    fontSize: 16,
-    marginTop: 10,
-  },
-  tabBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    padding: 10,
-  },
-  tabItem: {
-    padding: 10,
-  },
-  activeTabItem: {
-    borderBottomWidth: 2,
-    borderBottomColor: '#4A90E2',
-  },
-  tabText: {
-    fontSize: 14,
-    color: '#fff',
-  },
-  activeTabText: {
-    fontWeight: 'bold',
-  },
-  sectionList: {
-    flex: 1,
-  },
-  sectionHeader: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#fff',
-    padding: 10,
-  },
-  videoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 10,
-  },
-  videoRowLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  videoRowTitle: {
-    fontSize: 16,
-    color: '#fff',
-  },
-  videoRowMeta: {
-    fontSize: 12,
-    color: '#999',
-  },
-  discussionTab: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  videoThumbnailContainer: {
-    width: 130,
-    margin: 8,
-    alignItems: 'center',
-  },
-  videoThumbnail: {
-    width: 120,
-    height: 80,
-    borderRadius: 8,
-    backgroundColor: '#222',
-    marginBottom: 6,
-  },
+  container: 
+  { flex: 1, 
+    backgroundColor: '#1a1a1a' },
+  header: { flexDirection: 'row', justifyContent: 'space-between', padding: 16 },
+  headerTxt: { fontSize: 20, fontWeight: 'bold', color: '#fff' },
+  scrollBody: { padding: 16 },
+  courseCard: { flexDirection: 'row', backgroundColor: '#2a2a2a', borderRadius: 12, marginBottom: 16, padding: 12 },
+  courseThumb: { width: 60, height: 60, borderRadius: 8, marginRight: 12 },
+  courseTitle: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
+  courseDesc: { color: '#999', fontSize: 13, marginTop: 2 },
+  progressWrap: { height: 4, backgroundColor: '#333', borderRadius: 2, marginTop: 8 },
+  progressBar: { height: '100%', backgroundColor: '#4A90E2', borderRadius: 2 },
+  progressTxt: { fontSize: 12, color: '#4A90E2', marginTop: 6 },
+  err: { color: '#ff4444', textAlign: 'center' },
+  empty: { color: '#666', textAlign: 'center', marginTop: 40 },
+  modalWrap: { flex: 1, backgroundColor: '#1a1a1a' },
+  backBtn: { padding: 8 },
+  videoHeader: { color: '#fff', fontSize: 18, fontWeight: '600', paddingHorizontal: 16, marginBottom: 8 },
+  playerBox: { width: '100%', aspectRatio: 16 / 9, backgroundColor: '#000' },
+  videoPlayer: { width: '100%', height: '100%' },
+  noVidWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  tabBar: { flexDirection: 'row', justifyContent: 'space-around', marginTop: 12, borderBottomColor: '#333', borderBottomWidth: 1 },
+  tabItem: { paddingVertical: 10 },
+  tabActive: { borderBottomColor: '#4A90E2', borderBottomWidth: 2 },
+  tabTxt: { color: '#fff', fontSize: 14 },
+  tabTxtActive: { fontWeight: 'bold' },
+  sectionList: { flex: 1 },
+  videoRow: { flexDirection: 'row', alignItems: 'center', padding: 12, borderBottomColor: '#222', borderBottomWidth: 1 },
+  videoRowSel: { backgroundColor: '#233045' },
+  rowThumb: { width: 100, height: 70, borderRadius: 8, marginRight: 10 },
+  rowTitle: { color: '#fff', fontSize: 15 },
+  rowMeta: { color: '#999', fontSize: 12 },
+  discussionWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 });
 
-export default VideoScreen; 
+export default VideoScreen;
